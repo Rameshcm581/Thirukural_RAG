@@ -47,12 +47,20 @@ def connect_qdrant() -> QdrantClient:
     """Connect to Qdrant once. Safe to call multiple times."""
     global _qdrant_client
     if _qdrant_client is None:
-        logger.info("Connecting to Qdrant at %s:%s...", BaseConfig.QDRANT_HOST, BaseConfig.QDRANT_PORT)
-        _qdrant_client = QdrantClient(
-            host=BaseConfig.QDRANT_HOST,
-            port=BaseConfig.QDRANT_PORT,
-            check_compatibility=False,
-        )
+        if BaseConfig.QDRANT_URL:
+            logger.info("Connecting to Qdrant at %s...", BaseConfig.QDRANT_URL)
+            _qdrant_client = QdrantClient(
+                url=BaseConfig.QDRANT_URL,
+                api_key=BaseConfig.QDRANT_API_KEY or None,
+                check_compatibility=False,
+            )
+        else:
+            logger.info("Connecting to Qdrant at %s:%s...", BaseConfig.QDRANT_HOST, BaseConfig.QDRANT_PORT)
+            _qdrant_client = QdrantClient(
+                host=BaseConfig.QDRANT_HOST,
+                port=BaseConfig.QDRANT_PORT,
+                check_compatibility=False,
+            )
         logger.info("Connected to Qdrant.")
     return _qdrant_client
 

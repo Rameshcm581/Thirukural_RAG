@@ -114,6 +114,71 @@ Helpers: `flag_narrow_tags.py` (find and clear low-quality tags for regeneration
 
 `generate_tags.py` is the original Groq small-batch version, kept for reference — set `GROQ_API_KEY` to use it.
 
+## Deployment (free tier)
+
+The backend loads a ~1 GB embedding model at startup, so it needs 2–3 GB of RAM — more than most free web hosts give you. This stack runs the whole thing for $0:
+
+| Piece | Host | Why |
+|---|---|---|
+| Vector DB | [Qdrant Cloud](https://cloud.qdrant.io) free cluster (1 GB) | The index is ~40 MB; fits easily |
+| Backend | [Hugging Face Spaces](https://huggingface.co/spaces) — Docker SDK, free tier (2 vCPU / 16 GB) | Only free host with enough RAM for the model |
+| Frontend | [Vercel](https://vercel.com) Hobby | Static Vite build, root directory `frontend/` |
+| LLM | Gemini free tier | Already used for explanations |
+
+### 1. Qdrant Cloud — host the index
+
+1. Sign up at cloud.qdrant.io → **Create cluster** → pick the **Free** tier and a region.
+2. Copy the cluster **URL** (`https://….cloud.qdrant.io:6333`) and create an **API key**.
+3. Push the index from your machine (re-embeds locally, takes a few minutes):
+
+   ```bash
+   cd pipeline
+   QDRANT_URL="https://….cloud.qdrant.io:6333" QDRANT_API_KEY="…" python3 scripts/build_index.py
+   ```
+
+### 2. Hugging Face Space — host the backend
+
+`backend/` is pushed to the Space as its root; `backend/Dockerfile` and the YAML header in `backend/README.md` are what HF reads.
+
+1. On huggingface.co: **New Space** → name it (e.g. `thirukural-rag-api`) → SDK **Docker** → **Blank** → Public → Create.
+2. In the Space's **Settings → Variables and secrets**, add these **Secrets**:
+   - `QDRANT_URL` — the cluster URL from step 1
+   - `QDRANT_API_KEY`
+   - `GEMINI_API_KEY`
+
+   Everything else (`COLLECTION_NAME`, `EMBEDDING_MODEL_NAME`, `TOP_K`, …) has the right default in `backend/configs/base_config.py`.
+3. Push just the `backend/` folder to the Space:
+
+   ```bash
+   pip install huggingface_hub
+   huggingface-cli login            # paste a WRITE token; answer Y to "add as git credential"
+
+   git remote add hf https://huggingface.co/spaces/<HF_USERNAME>/thirukural-rag-api
+   git push --force hf "$(git subtree split --prefix backend main)":main
+   ```
+
+   The first build takes ~5–10 min (installs CPU torch, bakes the model into the image). Watch it under the Space's **Logs** tab. Re-run the same `git push` line after any backend change.
+4. Your API is live at `https://<HF_USERNAME>-thirukural-rag-api.hf.space` — open `/docs` to test.
+
+> Free Spaces go to sleep after 48 h without traffic and take ~1 min to wake. The frontend pings `/health` on page load to start that early.
+
+### 3. Vercel — host the frontend
+
+1. vercel.com → **Add New → Project** → import the GitHub repo.
+2. **Root Directory:** `frontend`. Framework is auto-detected as Vite.
+3. **Environment Variables:** `VITE_API_BASE` = `https://<HF_USERNAME>-thirukural-rag-api.hf.space` (no trailing slash).
+4. **Deploy.** Every push to `main` redeploys automatically.
+
+### Running the backend image locally
+
+```bash
+cd backend
+docker build -t thirukural-api .
+docker run --rm --network host --env-file .env thirukural-api
+```
+
+(`--network host` lets the container reach your local Qdrant on `localhost:6333`.)
+
 ## Backend ↔ pipeline contract
 
 The backend reads what `pipeline/scripts/build_index.py` writes. If you change one side, change the other:
@@ -128,7 +193,7 @@ The query embedding model **must** match the index embedding model or similarity
 
 ## Environment variables
 
-**`backend/.env`** (see `.env.example`): `QDRANT_HOST`, `QDRANT_PORT`, `COLLECTION_NAME`, `EMBEDDING_MODEL_NAME`, `TOP_K`, `SEARCH_LIMIT_RAW`, `GEMINI_API_KEY`, `EXPLAIN_MODEL_NAME`, `LOG_LEVEL`.
+**`backend/.env`** (see `.env.example`): `QDRANT_URL` + `QDRANT_API_KEY` (hosted) or `QDRANT_HOST` + `QDRANT_PORT` (local), `COLLECTION_NAME`, `EMBEDDING_MODEL_NAME`, `TOP_K`, `SEARCH_LIMIT_RAW`, `GEMINI_API_KEY`, `EXPLAIN_MODEL_NAME`, `LOG_LEVEL`.
 
 **`frontend/.env`**: `VITE_API_BASE`.
 

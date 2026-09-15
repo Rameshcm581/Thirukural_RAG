@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import KuralCard from './components/KuralCard.jsx'
 import './styles/App.css'
 
@@ -10,6 +10,12 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [hasSearched, setHasSearched] = useState(false)
+
+  // Wake the backend on page load -- free hosts put it to sleep when idle, and
+  // the first request after that can take a minute while the model loads.
+  useEffect(() => {
+    fetch(`${API_BASE}/health`).catch(() => {})
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()

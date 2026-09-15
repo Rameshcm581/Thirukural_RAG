@@ -12,7 +12,10 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 class BaseConfig:
-    # Qdrant
+    # Qdrant -- set QDRANT_URL (+ QDRANT_API_KEY) for a hosted cluster such as
+    # Qdrant Cloud; otherwise falls back to a local host/port.
+    QDRANT_URL: str = os.getenv("QDRANT_URL", "")
+    QDRANT_API_KEY: str = os.getenv("QDRANT_API_KEY", "")
     QDRANT_HOST: str = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
     COLLECTION_NAME: str = os.getenv("COLLECTION_NAME", "thirukural")

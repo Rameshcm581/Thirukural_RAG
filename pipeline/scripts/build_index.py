@@ -26,6 +26,7 @@ Assumes Qdrant is running locally (docker run -p 6333:6333 qdrant/qdrant).
 """
 
 import json
+import os
 from pathlib import Path
 
 from qdrant_client import QdrantClient
@@ -33,6 +34,10 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 from sentence_transformers import SentenceTransformer
 
 INPUT_PATH = Path("data/processed/kurals_enriched.json")
+# Set QDRANT_URL (+ QDRANT_API_KEY) to index into a hosted cluster, e.g. Qdrant
+# Cloud; otherwise targets the local docker instance.
+QDRANT_URL = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 QDRANT_HOST = "localhost"
 QDRANT_PORT = 6333
 COLLECTION_NAME = "thirukural"
@@ -106,8 +111,12 @@ def main():
         normalize_embeddings=True,  # so cosine similarity == dot product
     )
 
-    print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    if QDRANT_URL:
+        print(f"Connecting to Qdrant at {QDRANT_URL}...")
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None)
+    else:
+        print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
     print(f"(Re)creating collection '{COLLECTION_NAME}'...")
     client.recreate_collection(
