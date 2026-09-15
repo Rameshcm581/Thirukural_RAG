@@ -1,0 +1,269 @@
+[
+  {
+    "scenario": "A stranger helped me out with nothing to gain from it, and I don't know how I'll ever repay that",
+    "expected_kural_numbers": [
+      101
+    ]
+  },
+  {
+    "scenario": "A friend was there for me during my toughest year, and now that things are good I don't want to drift away from them",
+    "expected_kural_numbers": [
+      106
+    ]
+  },
+  {
+    "scenario": "I want to donate to people who actually need it, not just give to look generous",
+    "expected_kural_numbers": [
+      221
+    ]
+  },
+  {
+    "scenario": "I need to tell my friend something honest but I don't want my words to hurt them",
+    "expected_kural_numbers": [
+      291,
+      91
+    ]
+  },
+  {
+    "scenario": "My coworker keeps taking credit for my work and I want to snap at them in the meeting",
+    "expected_kural_numbers": [
+      305,
+      308
+    ]
+  },
+  {
+    "scenario": "I'm building a startup and thinking about what core things I need in place at once -- team, funding, advisors, safety net",
+    "expected_kural_numbers": [
+      381
+    ]
+  },
+  {
+    "scenario": "I'm mentoring a junior colleague and want them to actually apply what they learn, not just collect certifications",
+    "expected_kural_numbers": [
+      391
+    ]
+  },
+  {
+    "scenario": "After I lost my job and savings, my family treated me exactly the same -- I want to appreciate that properly",
+    "expected_kural_numbers": [
+      521
+    ]
+  },
+  {
+    "scenario": "I've let things slide at home and I can tell it's affecting how people see our family",
+    "expected_kural_numbers": [
+      601,
+      602
+    ]
+  },
+  {
+    "scenario": "I keep avoiding a big project because I'm scared I'll fail publicly if I try",
+    "expected_kural_numbers": [
+      611
+    ]
+  },
+  {
+    "scenario": "I'm choosing between job offers in two different cities and want to think about more than just salary",
+    "expected_kural_numbers": [
+      731
+    ]
+  },
+  {
+    "scenario": "My partner has been hinting they might leave and I don't know how to keep hoping things improve",
+    "expected_kural_numbers": [
+      1156
+    ]
+  },
+  {
+    "scenario": "I told my partner it was fine for them to go away for a while, but now I'm quietly miserable and can't admit it",
+    "expected_kural_numbers": [
+      1181
+    ]
+  },
+  {
+    "scenario": "My spouse manages our household budget so wisely, keeping us comfortable within what we earn",
+    "expected_kural_numbers": [
+      51
+    ]
+  },
+  {
+    "scenario": "Watching my kid learn to read felt more rewarding than any bonus at work",
+    "expected_kural_numbers": [
+      61
+    ]
+  },
+  {
+    "scenario": "I've been trying to hide my feelings for someone but everyone can tell just by looking at me",
+    "expected_kural_numbers": [
+      71
+    ]
+  },
+  {
+    "scenario": "I want guests to feel truly welcome in my home, not just politely tolerated",
+    "expected_kural_numbers": [
+      81
+    ]
+  },
+  {
+    "scenario": "I want to give my team honest feedback in a way that's kind, not just technically correct",
+    "expected_kural_numbers": [
+      91,
+      96
+    ]
+  },
+  {
+    "scenario": "I need to treat someone I dislike exactly as fairly as I'd treat a close friend",
+    "expected_kural_numbers": [
+      111
+    ]
+  },
+  {
+    "scenario": "I know indulging every craving and impulse is quietly ruining my life, and I want real self-control",
+    "expected_kural_numbers": [
+      121,
+      138
+    ]
+  },
+  {
+    "scenario": "I care so much about maintaining my integrity that I'd rather lose out than compromise it",
+    "expected_kural_numbers": [
+      131
+    ]
+  },
+  {
+    "scenario": "I'm attracted to a colleague who's already in a relationship and I know I shouldn't act on it",
+    "expected_kural_numbers": [
+      141
+    ]
+  },
+  {
+    "scenario": "My mother-in-law criticizes me constantly and I'm trying hard not to react",
+    "expected_kural_numbers": [
+      151
+    ]
+  },
+  {
+    "scenario": "My friend just got promoted over me and I'm struggling not to feel bitter",
+    "expected_kural_numbers": [
+      161
+    ]
+  },
+  {
+    "scenario": "I keep resenting my neighbor's new car and lifestyle instead of focusing on my own",
+    "expected_kural_numbers": [
+      171,
+      162
+    ]
+  },
+  {
+    "scenario": "I caught myself gossiping about a friend behind their back and felt awful after",
+    "expected_kural_numbers": [
+      181
+    ]
+  },
+  {
+    "scenario": "I talk too much in meetings just to fill silence, and it's not adding real value",
+    "expected_kural_numbers": [
+      191
+    ]
+  },
+  {
+    "scenario": "I'm tempted to cut corners on a project and just hope no one notices",
+    "expected_kural_numbers": [
+      201,
+      206
+    ]
+  },
+  {
+    "scenario": "I keep putting off exercising even though I know it would help me",
+    "expected_kural_numbers": [
+      605,
+      611
+    ]
+  },
+  {
+    "scenario": "I have an old friend I haven't spoken to in years but I know we could pick up right where we left off",
+    "expected_kural_numbers": [
+      785
+    ]
+  },
+  {
+    "scenario": "I'm cautious about who I let into my inner circle and want to really know someone before trusting them",
+    "expected_kural_numbers": [
+      791,
+      793
+    ]
+  },
+  {
+    "scenario": "A new acquaintance showers me with over-the-top affection and it feels like they want something, not genuine friendship",
+    "expected_kural_numbers": [
+      811
+    ]
+  },
+  {
+    "scenario": "I have a 'friend' who's nice to my face but I suspect they'd turn on me the moment it benefited them",
+    "expected_kural_numbers": [
+      821,
+      820
+    ]
+  },
+  {
+    "scenario": "I want my private actions to match my public values, not just perform integrity when people are watching",
+    "expected_kural_numbers": [
+      951
+    ]
+  },
+  {
+    "scenario": "I turned down an easy shortcut because it would have compromised my integrity",
+    "expected_kural_numbers": [
+      961
+    ]
+  },
+  {
+    "scenario": "Just being near my partner after time apart feels like everything is right again",
+    "expected_kural_numbers": [
+      1101,
+      1105
+    ]
+  },
+  {
+    "scenario": "My partner is leaving for a long work trip and I already dread how much I'll miss them",
+    "expected_kural_numbers": [
+      1151,
+      1185
+    ]
+  },
+  {
+    "scenario": "Thinking back on our happiest moments together still brings me a rush of joy, bittersweet as it is",
+    "expected_kural_numbers": [
+      1201,
+      1214
+    ]
+  },
+  {
+    "scenario": "I've lost my appetite and can't focus on anything since we broke up",
+    "expected_kural_numbers": [
+      1231
+    ]
+  },
+  {
+    "scenario": "I've been marking the days since they left and it's wearing me down physically and emotionally",
+    "expected_kural_numbers": [
+      1261
+    ]
+  },
+  {
+    "scenario": "I'm counting down the days until my partner comes home",
+    "expected_kural_numbers": [
+      1281,
+      1265
+    ]
+  },
+  {
+    "scenario": "My partner did something silly and endearing and I'm pretending to still be annoyed",
+    "expected_kural_numbers": [
+      1301,
+      1312
+    ]
+  }
+]

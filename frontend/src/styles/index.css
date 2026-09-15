@@ -1,0 +1,54 @@
+:root {
+  --ink: #1c1815;
+  --ink-soft: #262019;
+  --parchment: #efe6d3;
+  --parchment-shadow: #ddd0b3;
+  --bronze: #a8763e;
+  --bronze-bright: #c2934f;
+  --kumkum: #7a2e2e;
+  --bone: #e8e2d6;
+  --bone-dim: #a89f8f;
+
+  --serif-tamil: 'Noto Serif Tamil', serif;
+  --serif-en: 'Newsreader', Georgia, serif;
+  --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--bronze);
+  color: var(--ink);
+}
+
+/* visible keyboard focus, respected everywhere */
+a:focus-visible,
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--bronze-bright);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

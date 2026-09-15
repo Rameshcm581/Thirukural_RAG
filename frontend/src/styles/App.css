@@ -1,0 +1,213 @@
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 6rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+
+.hero-eyebrow {
+  font-family: var(--serif-tamil);
+  color: var(--bronze-bright);
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.hero-question {
+  font-family: var(--serif-en);
+  font-size: 2.6rem;
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0 0 1rem;
+  color: var(--bone);
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--bone-dim);
+  max-width: 52ch;
+  margin: 0 0 2.5rem;
+}
+
+/* ── Search form ──────────────────────────────────────────────────── */
+
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.search-form textarea {
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 1.1rem 1.2rem;
+  background: var(--ink-soft);
+  border: 1px solid #3a332a;
+  border-radius: 10px;
+  color: var(--bone);
+  resize: vertical;
+  min-height: 88px;
+}
+
+.search-form textarea::placeholder {
+  color: #6b6255;
+}
+
+.search-form textarea:focus {
+  border-color: var(--bronze);
+}
+
+.search-form button {
+  align-self: flex-start;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.6rem;
+  background: var(--bronze);
+  color: var(--ink);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.search-form button:hover:not(:disabled) {
+  background: var(--bronze-bright);
+}
+
+.search-form button:disabled {
+  background: #4a4237;
+  color: var(--bone-dim);
+  cursor: not-allowed;
+}
+
+/* ── Results area ─────────────────────────────────────────────────── */
+
+.results-area {
+  margin-top: 3rem;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  animation: rise-in 0.5s ease-out;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-panel,
+.empty-panel {
+  padding: 1.5rem;
+  border: 1px solid #3a332a;
+  border-radius: 10px;
+  color: var(--bone-dim);
+}
+
+.error-panel {
+  border-color: var(--kumkum);
+}
+
+.error-title {
+  font-weight: 600;
+  color: var(--bone);
+  margin: 0 0 0.4rem;
+}
+
+/* ── Kural card — the parchment / manuscript moment ──────────────── */
+
+.kural-card {
+  background: var(--parchment);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 2.2rem 2.4rem;
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
+}
+
+.kural-label {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--kumkum);
+  margin: 0 0 1.2rem;
+}
+
+.kural-manuscript {
+  text-align: left;
+}
+
+.kural-tamil {
+  font-family: var(--serif-tamil);
+  font-size: 1.5rem;
+  line-height: 1.55;
+  font-weight: 500;
+  margin: 0 0 0.6rem;
+  color: var(--ink);
+}
+
+.kural-translit {
+  font-family: var(--sans);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: #6b5f4a;
+  margin: 0;
+}
+
+.kural-divider {
+  height: 1px;
+  background: var(--parchment-shadow);
+  margin: 1.5rem 0;
+  width: 3rem;
+}
+
+.kural-english {
+  font-family: var(--serif-en);
+  font-size: 1.25rem;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0 0 1.2rem;
+  color: var(--ink);
+}
+
+.kural-explanation {
+  font-family: var(--sans);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: #3a3226;
+  margin: 0 0 1.4rem;
+}
+
+.kural-meta {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: #8a7d64;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .page {
+    padding: 3rem 1.1rem 4rem;
+  }
+  .hero-question {
+    font-size: 2rem;
+  }
+  .kural-card {
+    padding: 1.6rem 1.5rem;
+  }
+  .kural-tamil {
+    font-size: 1.3rem;
+  }
+}
