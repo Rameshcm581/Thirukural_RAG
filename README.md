@@ -179,6 +179,8 @@ docker run --rm --network host --env-file .env thirukural-api
 
 (`--network host` lets the container reach your local Qdrant on `localhost:6333`.)
 
+> Don't wrap values in quotes in `.env`. `python-dotenv` strips them but `docker --env-file` passes them literally, so `GEMINI_API_KEY="abc"` becomes the invalid key `"abc"` inside the container.
+
 ## Backend ↔ pipeline contract
 
 The backend reads what `pipeline/scripts/build_index.py` writes. If you change one side, change the other:
