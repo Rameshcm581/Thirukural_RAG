@@ -98,6 +98,17 @@ def main():
     print(f"Prepared {len(texts)} texts to embed "
           f"({len(texts) - len(kurals)} scenario tags + {len(kurals)} couplets).")
 
+    # Connect BEFORE the (slow) embedding step so a bad URL/key fails in
+    # seconds rather than after 15 minutes of CPU work.
+    if QDRANT_URL:
+        print(f"Connecting to Qdrant at {QDRANT_URL}...")
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None)
+    else:
+        print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    client.get_collections()  # raises immediately if unreachable or unauthorized
+    print("Connected.")
+
     print(f"Loading embedding model '{MODEL_NAME}' (this may download on first run)...")
     model = SentenceTransformer(MODEL_NAME)
     vector_size = model.get_sentence_embedding_dimension()
@@ -111,15 +122,10 @@ def main():
         normalize_embeddings=True,  # so cosine similarity == dot product
     )
 
-    if QDRANT_URL:
-        print(f"Connecting to Qdrant at {QDRANT_URL}...")
-        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None)
-    else:
-        print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-
     print(f"(Re)creating collection '{COLLECTION_NAME}'...")
-    client.recreate_collection(
+    if client.collection_exists(COLLECTION_NAME):
+        client.delete_collection(COLLECTION_NAME)
+    client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
     )
