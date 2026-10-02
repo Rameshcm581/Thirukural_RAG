@@ -73,3 +73,21 @@ def get_qdrant_client() -> QdrantClient:
             "called during app startup (see main.py lifespan)."
         )
     return _qdrant_client
+
+
+def check_health() -> dict:
+    """Returns status dictionary verifying model and Qdrant connectivity."""
+    model_status = "loaded" if _embedding_model is not None else "not_loaded"
+    qdrant_status = "not_connected"
+    if _qdrant_client is not None:
+        try:
+            _qdrant_client.get_collections()
+            qdrant_status = "connected"
+        except Exception as exc:
+            qdrant_status = f"unreachable: {exc}"
+    is_healthy = model_status == "loaded" and qdrant_status == "connected"
+    return {
+        "status": "healthy" if is_healthy else "degraded",
+        "embedding_model": model_status,
+        "qdrant": qdrant_status,
+    }

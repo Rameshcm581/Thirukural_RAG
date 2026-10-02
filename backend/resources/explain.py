@@ -20,10 +20,17 @@ logger = logging.getLogger(__name__)
 _client: genai.Client | None = None
 
 
-def _get_client() -> genai.Client:
+def _get_client() -> genai.Client | None:
     global _client
     if _client is None:
-        _client = genai.Client(api_key=BaseConfig.GEMINI_API_KEY)
+        api_key = (BaseConfig.GEMINI_API_KEY or "").strip().strip('"').strip("'")
+        if not api_key:
+            return None
+        try:
+            _client = genai.Client(api_key=api_key)
+        except Exception as exc:
+            logger.warning("Failed to initialize Gemini client: %s", exc)
+            return None
     return _client
 
 
@@ -44,41 +51,53 @@ Kural explanation: {english_explanation}
 Explain why this kural's wisdom applies to the user's situation."""
 
 
+def _fallback_explanation(kural: dict) -> str:
+    return (f"This kural (#{kural['kural_number']}) speaks to your situation "
+            f"through its teaching: {kural['english_explanation']}")
+
+
 def generate_explanation(scenario: str, kural: dict, max_retries: int = 2) -> str:
     """Returns a short grounded explanation, or a safe fallback string
     if generation fails after retries (never raises -- an explanation
     failure shouldn't break the whole /search response)."""
-    client = _get_client()
-    user_prompt = USER_PROMPT_TEMPLATE.format(
-        scenario=scenario,
-        english_couplet=kural["english_couplet"],
-        english_explanation=kural["english_explanation"],
-    )
+    try:
+        client = _get_client()
+        if client is None:
+            return _fallback_explanation(kural)
 
-    for attempt in range(max_retries + 1):
-        try:
-            response = client.models.generate_content(
-                model=BaseConfig.EXPLAIN_MODEL_NAME,
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
-                    temperature=0.5,
-                    max_output_tokens=200,
-                ),
-            )
-            text = response.text
-            if text and text.strip():
-                return text.strip()
-            raise ValueError("empty explanation response")
+        user_prompt = USER_PROMPT_TEMPLATE.format(
+            scenario=scenario,
+            english_couplet=kural["english_couplet"],
+            english_explanation=kural["english_explanation"],
+        )
 
-        except Exception as exc:
-            if attempt < max_retries:
-                wait = 2 ** attempt
-                logger.warning("generate_explanation | retry %d/%d | kural=%s | error=%s",
-                               attempt + 1, max_retries, kural["kural_number"], exc)
-                time.sleep(wait)
-                continue
-            logger.error("generate_explanation | failed after retries | kural=%s | error=%s",
-                         kural["kural_number"], exc, exc_info=True)
-            return (f"This kural (#{kural['kural_number']}) speaks to your situation "
-                    f"through its teaching: {kural['english_explanation']}")
+        for attempt in range(max_retries + 1):
+            try:
+                response = client.models.generate_content(
+                    model=BaseConfig.EXPLAIN_MODEL_NAME,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=0.5,
+                        max_output_tokens=200,
+                    ),
+                )
+                text = response.text
+                if text and text.strip():
+                    return text.strip()
+                raise ValueError("empty explanation response")
+
+            except Exception as exc:
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning("generate_explanation | retry %d/%d | kural=%s | error=%s",
+                                   attempt + 1, max_retries, kural["kural_number"], exc)
+                    time.sleep(wait)
+                    continue
+                logger.error("generate_explanation | failed after retries | kural=%s | error=%s",
+                             kural["kural_number"], exc, exc_info=True)
+                return _fallback_explanation(kural)
+    except Exception as exc:
+        logger.error("generate_explanation | unexpected error | kural=%s | error=%s",
+                     kural.get("kural_number"), exc, exc_info=True)
+        return _fallback_explanation(kural)

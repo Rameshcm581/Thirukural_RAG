@@ -124,6 +124,10 @@ def flatten(primary_raw: dict, secondary_lookup: dict) -> tuple[list[dict], list
         else:
             missing_secondary.append(number)
 
+        t1 = (entry.get("transliteration1") or "").strip()
+        t2 = (entry.get("transliteration2") or "").strip()
+        transliteration = f"{t1}\n{t2}" if t2 else t1
+
         flat_records.append({
             "kural_number": number,
             "book": entry.get("paul_translation"),
@@ -133,7 +137,7 @@ def flatten(primary_raw: dict, secondary_lookup: dict) -> tuple[list[dict], list
             "adikaram": entry.get("adikaram_translation"),
             "adikaram_tamil": entry.get("adikaram_name"),
             "tamil_couplet": [entry.get("Line1"), entry.get("Line2")],
-            "transliteration": entry.get("transliteration1"),
+            "transliteration": transliteration,
             "english_couplet": entry.get("couplet"),
             "english_explanation": entry.get("explanation"),
             "commentaries": commentaries,

@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-INPUT_PATH = Path("data/processed/kurals_flat.json")
+INPUT_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_flat.json"
 
 
 def main():

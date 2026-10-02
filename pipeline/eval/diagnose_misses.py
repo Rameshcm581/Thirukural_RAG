@@ -22,14 +22,17 @@ import sys
 from pathlib import Path
 
 from qdrant_client import QdrantClient
+import os
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer, util
 
-KURALS_PATH = Path("data/processed/kurals_enriched.json")
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
-COLLECTION_NAME = "thirukural"
-MODEL_NAME = "paraphrase-multilingual-mpnet-base-v2"
+KURALS_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_enriched.json"
+QDRANT_URL = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
+MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2")
 
 
 def main():
@@ -71,7 +74,10 @@ def main():
             print(f"  {score:.3f}  {tag}")
 
     print(f"\n--- What was actually retrieved instead (top 5, scenario_tag vectors only) ---")
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
+    if QDRANT_URL:
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
+    else:
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
     tag_filter = Filter(must=[FieldCondition(key="vector_type", match=MatchValue(value="scenario_tag"))])
     response = client.query_points(
         collection_name=COLLECTION_NAME,

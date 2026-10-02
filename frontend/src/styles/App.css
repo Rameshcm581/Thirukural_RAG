@@ -60,6 +60,12 @@
   border-color: var(--bronze);
 }
 
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
 .search-form button {
   align-self: flex-start;
   font-family: var(--sans);
@@ -84,10 +90,42 @@
   cursor: not-allowed;
 }
 
+.submit-hint {
+  font-size: 0.8rem;
+  color: #7a7060;
+  letter-spacing: 0.01em;
+}
+
 /* ── Results area ─────────────────────────────────────────────────── */
 
 .results-area {
   margin-top: 3rem;
+}
+
+.loading-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid #3a332a;
+  border-radius: 10px;
+  color: var(--bone-dim);
+  background: var(--ink-soft);
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #4a4237;
+  border-top-color: var(--bronze-bright);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .results-list {
@@ -126,22 +164,48 @@
   margin: 0 0 0.4rem;
 }
 
-/* ── Kural card — the parchment / manuscript moment ──────────────── */
+/* ── Kural card — manuscript moment ──────────────────────────────── */
 
 .kural-card {
   background: var(--parchment);
   color: var(--ink);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 2.2rem 2.4rem;
   box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
 }
 
+.kural-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 1.2rem;
+}
+
 .kural-label {
   font-family: var(--sans);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--kumkum);
-  margin: 0 0 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.kural-badge {
+  font-family: var(--sans);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #5c4e38;
+  background: rgba(168, 118, 62, 0.14);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(168, 118, 62, 0.25);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kural-manuscript {
@@ -163,6 +227,8 @@
   font-size: 0.9rem;
   color: #6b5f4a;
   margin: 0;
+  white-space: pre-line;
+  line-height: 1.45;
 }
 
 .kural-divider {
@@ -177,22 +243,67 @@
   font-size: 1.25rem;
   font-style: italic;
   line-height: 1.5;
-  margin: 0 0 1.2rem;
+  margin: 0 0 1.4rem;
   color: var(--ink);
+}
+
+.kural-explanation-block {
+  margin: 0 0 1.2rem;
+}
+
+.kural-explanation-heading {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a7a60;
+  margin: 0 0 0.35rem;
+}
+
+.kural-classical {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #4a4032;
+  margin: 0;
+}
+
+.kural-wisdom-block {
+  background: rgba(168, 118, 62, 0.08);
+  padding: 0.9rem 1.1rem;
+  border-radius: 6px;
+  border-left: 3px solid var(--bronze);
+  margin-top: 1rem;
+}
+
+.kural-wisdom-block .kural-explanation-heading {
+  color: var(--bronze);
 }
 
 .kural-explanation {
   font-family: var(--sans);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
   line-height: 1.6;
-  color: #3a3226;
-  margin: 0 0 1.4rem;
+  color: #2e261d;
+  margin: 0;
 }
 
 .kural-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--sans);
   font-size: 0.82rem;
   color: #8a7d64;
+  margin-top: 1.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.meta-separator {
+  opacity: 0.5;
 }
 
 /* ── Mobile ───────────────────────────────────────────────────────── */
@@ -203,6 +314,11 @@
   }
   .hero-question {
     font-size: 2rem;
+  }
+  .form-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
   }
   .kural-card {
     padding: 1.6rem 1.5rem;

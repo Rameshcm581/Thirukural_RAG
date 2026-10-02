@@ -12,11 +12,19 @@ per-request, and routes are registered as a single aggregated router.
 import logging
 import os
 import pathlib
+import sys
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+
+# Ensure backend directory is in sys.path so imports work regardless of CWD
+backend_dir = str(pathlib.Path(__file__).parent.resolve())
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 
@@ -28,7 +36,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from resources import load_embedding_model, connect_qdrant  # noqa: E402
+from resources import load_embedding_model, connect_qdrant, check_health  # noqa: E402
 from routes import router  # noqa: E402
 
 
@@ -55,7 +63,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -74,8 +82,13 @@ def root():
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Health check endpoint."""
-    return {"service": "ThirukuralService", "status": "healthy"}
+    """Health check endpoint checking embedding model and Qdrant readiness."""
+    health = check_health()
+    status_code = 200 if health["status"] == "healthy" else 503
+    return JSONResponse(
+        content={"service": "ThirukuralService", **health},
+        status_code=status_code,
+    )
 
 
 app.include_router(router)

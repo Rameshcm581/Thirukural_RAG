@@ -19,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-OUTPUT_PATH = Path("data/processed/kurals_enriched.json")
+OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_enriched.json"
 
 WORKPLACE_WORDS = ["manager", "project", "team", "company", "office",
                     "career", "colleague", "boss", "department", "meeting",

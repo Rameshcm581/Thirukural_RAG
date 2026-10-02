@@ -27,14 +27,17 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 
-GOLD_SET_PATH = Path("eval/gold_set.json")
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
-COLLECTION_NAME = "thirukural"
-MODEL_NAME = "paraphrase-multilingual-mpnet-base-v2"
-TOP_K = 5
-SEARCH_LIMIT_RAW = 20  # over-fetch raw points before dedup by kural_number,
-                        # since multiple scenario_tag points can share a kural
+import os
+
+GOLD_SET_PATH = Path(__file__).resolve().parent / "gold_set.json"
+QDRANT_URL = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
+MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2")
+TOP_K = int(os.getenv("TOP_K", "5"))
+SEARCH_LIMIT_RAW = int(os.getenv("SEARCH_LIMIT_RAW", "20"))
 
 
 def load_gold_set() -> list[dict]:
@@ -146,8 +149,12 @@ def main():
     print(f"Loading embedding model '{MODEL_NAME}'...")
     model = SentenceTransformer(MODEL_NAME)
 
-    print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
+    if QDRANT_URL:
+        print(f"Connecting to Qdrant at {QDRANT_URL}...")
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
+    else:
+        print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
 
     print("\nRunning evaluation across three retrieval modes...")
 

@@ -24,17 +24,21 @@ import json
 from pathlib import Path
 
 from qdrant_client import QdrantClient
+import os
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer, util
 
-GOLD_SET_PATH = Path("eval/gold_set.json")
-KURALS_PATH = Path("data/processed/kurals_enriched.json")
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
-COLLECTION_NAME = "thirukural"
-MODEL_NAME = "paraphrase-multilingual-mpnet-base-v2"
-TOP_K = 5
-SEARCH_LIMIT_RAW = 20
+BASE_DIR = Path(__file__).resolve().parent.parent
+GOLD_SET_PATH = Path(__file__).resolve().parent / "gold_set.json"
+KURALS_PATH = BASE_DIR / "data/processed/kurals_enriched.json"
+QDRANT_URL = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
+MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2")
+TOP_K = int(os.getenv("TOP_K", "5"))
+SEARCH_LIMIT_RAW = int(os.getenv("SEARCH_LIMIT_RAW", "20"))
 AMBIGUITY_SCORE_GAP_THRESHOLD = 0.15  # if expected kural's best tag is within
     # this much of the top competitor's score, treat as ambiguity even if
     # chapters differ slightly, since it's a close call either way
@@ -59,7 +63,10 @@ def main():
 
     print(f"Loading model '{MODEL_NAME}'...")
     model = SentenceTransformer(MODEL_NAME)
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
+    if QDRANT_URL:
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
+    else:
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
     tag_filter = Filter(must=[FieldCondition(key="vector_type", match=MatchValue(value="scenario_tag"))])
 
     ambiguity_cases = []
@@ -91,6 +98,9 @@ def main():
             expected_best_score = util.cos_sim(query_embedding, tag_embeddings)[0].max().item()
         else:
             expected_best_score = 0.0
+
+        if not response.points:
+            continue
 
         top_competitor_point = response.points[0]
         top_competitor_num = top_competitor_point.payload["kural_number"]

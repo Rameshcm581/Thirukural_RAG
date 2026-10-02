@@ -7,6 +7,7 @@ WARNING bad input, ERROR unexpected), HTTPException passthrough, and a
 catch-all Exception handler with exc_info=True for full tracebacks.
 """
 
+import concurrent.futures
 import logging
 
 from fastapi import APIRouter, HTTPException, status
@@ -20,11 +21,12 @@ router = APIRouter()
 
 
 @router.post("/search", response_model=SearchResponse, status_code=status.HTTP_200_OK)
-async def search(request: SearchRequest):
+def search(request: SearchRequest):
     """Single-turn search: scenario in, top-k kurals + explanations out."""
     try:
+        scenario = request.scenario.strip()
         # ── Input validation ─────────────────────────────────────────────
-        if not request.scenario or not request.scenario.strip():
+        if not scenario:
             logger.warning("search | 400 | empty scenario")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -32,21 +34,27 @@ async def search(request: SearchRequest):
             )
 
         # ── Retrieval ────────────────────────────────────────────────────
-        raw_results = retrieve_kurals(request.scenario)
+        raw_results = retrieve_kurals(scenario)
 
         if not raw_results:
-            logger.info("search | 200 | no results | scenario=%r", request.scenario)
+            logger.info("search | 200 | no results | scenario=%r", scenario)
             return SearchResponse(results=[])
 
-        # ── Grounded explanation per result ─────────────────────────────
-        results = []
-        for r in raw_results:
-            explanation = generate_explanation(request.scenario, r)
-            results.append(KuralResult(**r, explanation=explanation))
+        # ── Grounded explanation per result in parallel ──────────────────
+        max_workers = min(len(raw_results), 5)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            explanations = list(
+                executor.map(lambda r: generate_explanation(scenario, r), raw_results)
+            )
+
+        results = [
+            KuralResult(**r, explanation=exp)
+            for r, exp in zip(raw_results, explanations)
+        ]
 
         logger.info(
             "search | 200 | scenario=%r | top_kural=%s | count=%d",
-            request.scenario, results[0].kural_number, len(results),
+            scenario, results[0].kural_number, len(results),
         )
         return SearchResponse(results=results)
 

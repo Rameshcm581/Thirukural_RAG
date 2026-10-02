@@ -33,15 +33,15 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from sentence_transformers import SentenceTransformer
 
-INPUT_PATH = Path("data/processed/kurals_enriched.json")
+INPUT_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_enriched.json"
 # Set QDRANT_URL (+ QDRANT_API_KEY) to index into a hosted cluster, e.g. Qdrant
 # Cloud; otherwise targets the local docker instance.
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
-QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
-COLLECTION_NAME = "thirukural"
-MODEL_NAME = "paraphrase-multilingual-mpnet-base-v2"
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
+MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2")
 BATCH_SIZE = 64
 
 
@@ -102,10 +102,10 @@ def main():
     # seconds rather than after 15 minutes of CPU work.
     if QDRANT_URL:
         print(f"Connecting to Qdrant at {QDRANT_URL}...")
-        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None)
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
     else:
         print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
     client.get_collections()  # raises immediately if unreachable or unauthorized
     print("Connected.")
 
@@ -128,6 +128,12 @@ def main():
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+    )
+    print("Creating payload index for 'vector_type'...")
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="vector_type",
+        field_schema="keyword",
     )
 
     print("Upserting points into Qdrant...")

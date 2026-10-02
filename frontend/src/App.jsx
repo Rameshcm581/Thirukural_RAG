@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import KuralCard from './components/KuralCard.jsx'
 import './styles/App.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:8000').replace(/\/+$/, '')
 
 export default function App() {
   const [scenario, setScenario] = useState('')
@@ -11,30 +11,36 @@ export default function App() {
   const [error, setError] = useState(null)
   const [hasSearched, setHasSearched] = useState(false)
 
-  // Wake the backend on page load -- free hosts put it to sleep when idle, and
-  // the first request after that can take a minute while the model loads.
+  // Wake the backend on page load -- free hosts put it to sleep when idle
   useEffect(() => {
     fetch(`${API_BASE}/health`).catch(() => {})
   }, [])
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!scenario.trim()) return
+  async function performSearch(text) {
+    const trimmed = text.trim()
+    if (!trimmed || loading) return
 
     setLoading(true)
     setError(null)
+    setResults(null)
     setHasSearched(true)
 
     try {
       const res = await fetch(`${API_BASE}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario }),
+        body: JSON.stringify({ scenario: trimmed }),
       })
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.detail || `Request failed (${res.status})`)
+        let message = `Request failed (${res.status})`
+        if (typeof body.detail === 'string') {
+          message = body.detail
+        } else if (Array.isArray(body.detail)) {
+          message = body.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+        }
+        throw new Error(message)
       }
 
       const data = await res.json()
@@ -47,13 +53,25 @@ export default function App() {
     }
   }
 
+  function handleSubmit(e) {
+    e.preventDefault()
+    performSearch(scenario)
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      performSearch(scenario)
+    }
+  }
+
   return (
     <div className="page">
       <header className="hero">
         <p className="hero-eyebrow">Thirukural</p>
         <h1 className="hero-question">What's on your mind?</h1>
         <p className="hero-sub">
-          Describe a situation, in your own words. A 2,000-year-old couplet
+          Describe a situation in your own words. A 2,000-year-old couplet
           may already know exactly what you're going through.
         </p>
 
@@ -61,18 +79,30 @@ export default function App() {
           <textarea
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
+            onKeyDown={handleKeyDown}
+            aria-label="Describe your modern life situation"
             placeholder="My coworker keeps taking credit for my work and I want to snap at them in the meeting…"
             rows={3}
           />
-          <button type="submit" disabled={loading || !scenario.trim()}>
-            {loading ? 'Searching…' : 'Find wisdom'}
-          </button>
+          <div className="form-actions">
+            <button type="submit" disabled={loading || !scenario.trim()}>
+              {loading ? 'Searching…' : 'Find wisdom'}
+            </button>
+            <span className="submit-hint">Press Enter to search, Shift+Enter for new line</span>
+          </div>
         </form>
       </header>
 
       <main className="results-area">
+        {loading && (
+          <div className="loading-panel">
+            <div className="loading-spinner" />
+            <p>Consulting the ancient wisdom for your situation…</p>
+          </div>
+        )}
+
         {error && (
-          <div className="error-panel">
+          <div className="error-panel" role="alert">
             <p className="error-title">Something went wrong</p>
             <p>{error}</p>
           </div>
@@ -84,7 +114,7 @@ export default function App() {
           </div>
         )}
 
-        {results && results.length > 0 && (
+        {!loading && results && results.length > 0 && (
           <div className="results-list">
             {results.map((kural, i) => (
               <KuralCard

@@ -5,11 +5,11 @@ Pydantic models -- the API contract for every endpoint.
 """
 
 from typing import Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SearchRequest(BaseModel):
-    scenario: str
+    scenario: str = Field(..., min_length=1, max_length=1000, description="Modern scenario description")
 
 
 class KuralResult(BaseModel):
