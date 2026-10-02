@@ -7,3 +7,4 @@ sentence-transformers
 google-genai
 httpx
 pytest
+psycopg[binary]

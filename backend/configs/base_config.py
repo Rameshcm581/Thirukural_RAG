@@ -33,5 +33,11 @@ class BaseConfig:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     EXPLAIN_MODEL_NAME: str = os.getenv("EXPLAIN_MODEL_NAME", "gemini-3.5-flash-lite")
 
+    # PostgreSQL Database for Chat History & Sessions
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:2003@localhost:5432/pgdb"
+    )
+
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

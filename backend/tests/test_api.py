@@ -85,3 +85,37 @@ def test_search_mocked(client):
         assert data["results"][0]["kural_number"] == 1
         assert data["results"][0]["explanation"] == "Wise teaching"
         assert data["results"][0]["matched_tag"] == "beginning of life"
+
+
+def test_chat_lifecycle_with_postgres(client):
+    test_session = "test-session-12345"
+    # Send first user message
+    with patch("resources.chat.retrieve_kurals", return_value=[]):
+        resp = client.post("/chat", json={"session_id": test_session, "message": "How do I deal with anger?"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == test_session
+        assert "reply" in data
+        assert data["mode"] in ("answered", "clarifying_question", "multiple_options")
+
+    # Verify session appears in session list
+    resp_list = client.get("/chat/sessions")
+    assert resp_list.status_code == 200
+    sessions = resp_list.json()["sessions"]
+    matching = [s for s in sessions if s["session_id"] == test_session]
+    assert len(matching) == 1
+    assert matching[0]["message_count"] >= 2  # user msg + assistant msg
+
+    # Verify session history
+    resp_hist = client.get(f"/chat/sessions/{test_session}")
+    assert resp_hist.status_code == 200
+    messages = resp_hist.json()["messages"]
+    assert len(messages) >= 2
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == "How do I deal with anger?"
+    assert messages[1]["role"] == "assistant"
+
+    # Delete session
+    resp_del = client.delete(f"/chat/sessions/{test_session}")
+    assert resp_del.status_code == 200
+    assert resp_del.json()["deleted"] is True

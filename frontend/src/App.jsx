@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import KuralCard from './components/KuralCard.jsx'
+import ChatView from './components/ChatView.jsx'
 import './styles/App.css'
 
 const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:8000').replace(/\/+$/, '')
 
 export default function App() {
+  const [tab, setTab] = useState('search') // 'search' | 'chat'
   const [scenario, setScenario] = useState('')
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -67,65 +69,98 @@ export default function App() {
 
   return (
     <div className="page">
-      <header className="hero">
-        <p className="hero-eyebrow">Thirukural</p>
-        <h1 className="hero-question">What's on your mind?</h1>
-        <p className="hero-sub">
-          Describe a situation in your own words. A 2,000-year-old couplet
-          may already know exactly what you're going through.
-        </p>
+      {/* Navigation Switcher */}
+      <nav className="top-nav" aria-label="Mode selector">
+        <button
+          type="button"
+          className={`nav-tab ${tab === 'search' ? 'active' : ''}`}
+          onClick={() => setTab('search')}
+        >
+          🔍 Discover Wisdom
+        </button>
+        <button
+          type="button"
+          className={`nav-tab ${tab === 'chat' ? 'active' : ''}`}
+          onClick={() => setTab('chat')}
+        >
+          💬 Counsel Dialogue
+        </button>
+      </nav>
 
-        <form onSubmit={handleSubmit} className="search-form">
-          <textarea
-            value={scenario}
-            onChange={(e) => setScenario(e.target.value)}
-            onKeyDown={handleKeyDown}
-            aria-label="Describe your modern life situation"
-            placeholder="My coworker keeps taking credit for my work and I want to snap at them in the meeting…"
-            rows={3}
-          />
-          <div className="form-actions">
-            <button type="submit" disabled={loading || !scenario.trim()}>
-              {loading ? 'Searching…' : 'Find wisdom'}
-            </button>
-            <span className="submit-hint">Press Enter to search, Shift+Enter for new line</span>
-          </div>
-        </form>
-      </header>
+      {tab === 'search' ? (
+        <>
+          <header className="hero">
+            <p className="hero-eyebrow">Thirukural</p>
+            <h1 className="hero-question">What's on your mind?</h1>
+            <p className="hero-sub">
+              Describe a situation in your own words. A 2,000-year-old couplet
+              may already know exactly what you're going through.
+            </p>
 
-      <main className="results-area">
-        {loading && (
-          <div className="loading-panel">
-            <div className="loading-spinner" />
-            <p>Consulting the ancient wisdom for your situation…</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="error-panel" role="alert">
-            <p className="error-title">Something went wrong</p>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {hasSearched && !loading && !error && results?.length === 0 && (
-          <div className="empty-panel">
-            <p>No kural quite matched that. Try describing the feeling underneath the situation instead.</p>
-          </div>
-        )}
-
-        {!loading && results && results.length > 0 && (
-          <div className="results-list">
-            {results.map((kural, i) => (
-              <KuralCard
-                key={kural.kural_number}
-                kural={kural}
-                label={i === 0 ? 'Closest to your situation' : 'Also speaks to this'}
+            <form onSubmit={handleSubmit} className="search-form">
+              <textarea
+                value={scenario}
+                onChange={(e) => setScenario(e.target.value)}
+                onKeyDown={handleKeyDown}
+                aria-label="Describe your modern life situation"
+                placeholder="My coworker keeps taking credit for my work and I want to snap at them in the meeting…"
+                rows={3}
               />
-            ))}
-          </div>
-        )}
-      </main>
+              <div className="form-actions">
+                <button type="submit" disabled={loading || !scenario.trim()}>
+                  {loading ? 'Searching…' : 'Find wisdom'}
+                </button>
+                <span className="submit-hint">Press Enter to search, Shift+Enter for new line</span>
+              </div>
+            </form>
+          </header>
+
+          <main className="results-area">
+            {loading && (
+              <div className="loading-panel">
+                <div className="loading-spinner" />
+                <p>Consulting the ancient wisdom for your situation…</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="error-panel" role="alert">
+                <p className="error-title">Something went wrong</p>
+                <p>{error}</p>
+              </div>
+            )}
+
+            {hasSearched && !loading && !error && results?.length === 0 && (
+              <div className="empty-panel">
+                <p>No kural quite matched that. Try describing the feeling underneath the situation instead.</p>
+              </div>
+            )}
+
+            {!loading && results && results.length > 0 && (
+              <div className="results-list">
+                {results.map((kural, i) => (
+                  <KuralCard
+                    key={kural.kural_number}
+                    kural={kural}
+                    label={i === 0 ? 'Closest to your situation' : 'Also speaks to this'}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+        </>
+      ) : (
+        <main className="chat-main-area">
+          <header className="hero hero-chat">
+            <p className="hero-eyebrow">Thirukural Counseling</p>
+            <h1 className="hero-question">Explore with Counsel</h1>
+            <p className="hero-sub">
+              Have a multi-turn conversation. Every exchange is stored in PostgreSQL and grounded in classical couplets.
+            </p>
+          </header>
+          <ChatView apiBase={API_BASE} />
+        </main>
+      )}
     </div>
   )
 }

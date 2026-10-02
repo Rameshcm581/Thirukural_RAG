@@ -37,17 +37,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from resources import load_embedding_model, connect_qdrant, check_health  # noqa: E402
+from resources.db import init_db, check_db_health  # noqa: E402
 from routes import router  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load the embedding model and connect to Qdrant once at startup,
-    not per-request -- the model is ~1GB and reloading it per request
-    would be prohibitively slow."""
-    logger.info("ThirukuralService starting -- loading embedding model and connecting to Qdrant")
+    """Load the embedding model, connect to Qdrant, and initialize PostgreSQL at startup."""
+    logger.info("ThirukuralService starting -- loading embedding model, connecting to Qdrant, and initializing PostgreSQL")
     load_embedding_model()
     connect_qdrant()
+    init_db()
     logger.info("ThirukuralService startup complete")
     yield
     logger.info("ThirukuralService shutting down")
@@ -82,9 +82,18 @@ def root():
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Health check endpoint checking embedding model and Qdrant readiness."""
+    """Health check endpoint checking embedding model, Qdrant, and PostgreSQL readiness."""
     health = check_health()
-    status_code = 200 if health["status"] == "healthy" else 503
+    db_status = check_db_health()
+    health["database"] = db_status
+
+    is_healthy = (
+        health["status"] == "healthy"
+        and db_status == "connected"
+    )
+    health["status"] = "healthy" if is_healthy else "degraded"
+    status_code = 200 if is_healthy else 503
+
     return JSONResponse(
         content={"service": "ThirukuralService", **health},
         status_code=status_code,
