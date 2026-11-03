@@ -24,7 +24,7 @@ class BaseConfig:
     EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
     EMBEDDING_MODEL_NAME: str = os.getenv(
         "EMBEDDING_MODEL_NAME",
-        "text-embedding-004" if os.getenv("EMBEDDING_PROVIDER", "gemini").lower() == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
+        "gemini-embedding-001" if os.getenv("EMBEDDING_PROVIDER", "gemini").lower() == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
     )
 
     # Retrieval tuning -- carried over from eval/run_eval.py's validated values
@@ -33,7 +33,7 @@ class BaseConfig:
 
     # Explanation generation (Gemini)
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    EXPLAIN_MODEL_NAME: str = os.getenv("EXPLAIN_MODEL_NAME", "gemini-2.5-flash")
+    EXPLAIN_MODEL_NAME: str = os.getenv("EXPLAIN_MODEL_NAME", "gemini-3.5-flash-lite")
 
     # PostgreSQL Database for Chat History & Sessions
     DATABASE_URL: str = os.getenv(

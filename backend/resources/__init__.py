@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from google import genai
+from google.genai import types
 from qdrant_client import QdrantClient
 
 from configs import BaseConfig
@@ -76,6 +77,7 @@ def embed_text(text: str) -> list[float]:
         response = client.models.embed_content(
             model=BaseConfig.EMBEDDING_MODEL_NAME,
             contents=text,
+            config=types.EmbedContentConfig(output_dimensionality=768),
         )
         return response.embeddings[0].values
     else:

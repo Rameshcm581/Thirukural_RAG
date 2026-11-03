@@ -41,7 +41,7 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
 MODEL_NAME = os.getenv(
     "EMBEDDING_MODEL_NAME",
-    "text-embedding-004" if EMBEDDING_PROVIDER == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
+    "gemini-embedding-001" if EMBEDDING_PROVIDER == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
 )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
@@ -91,6 +91,7 @@ def build_points_metadata(kurals: list[dict]) -> tuple[list[str], list[dict]]:
 
 def embed_texts_gemini(texts: list[str], model_name: str, api_key: str, batch_size: int = 100) -> list[list[float]]:
     from google import genai
+    from google.genai import types
     api_key_clean = (api_key or "").strip().strip('"').strip("'")
     if not api_key_clean:
         raise ValueError("GEMINI_API_KEY is required to index with the 'gemini' provider.")
@@ -109,6 +110,7 @@ def embed_texts_gemini(texts: list[str], model_name: str, api_key: str, batch_si
                 response = client.models.embed_content(
                     model=model_name,
                     contents=batch,
+                    config=types.EmbedContentConfig(output_dimensionality=768),
                 )
                 batch_vectors = [emb.values for emb in response.embeddings]
                 all_embeddings.extend(batch_vectors)
