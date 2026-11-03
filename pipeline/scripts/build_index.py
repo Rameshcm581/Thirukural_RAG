@@ -4,9 +4,10 @@ build_index.py
 Embed and index the enriched Thirukural dataset into Qdrant.
 
 Supports two embedding providers:
-  1. "gemini" (default) -- uses Google's text-embedding-004 API.
+  1. "gemini" (default) -- uses Google's gemini-embedding-001 API (output dim: 768).
      Lightweight, avoids huge PyTorch memory footprint (~1.5GB) on servers,
      and allows backend to run comfortably within Render / free tier limits.
+     Includes disk checkpointing (caches every batch) and auto-key rotation.
   2. "local" -- uses SentenceTransformer (paraphrase-multilingual-mpnet-base-v2).
 """
 
@@ -28,7 +29,9 @@ for env_candidate in [
     if env_candidate.exists():
         load_dotenv(env_candidate)
 
-INPUT_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_enriched.json"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data/processed"
+INPUT_PATH = DATA_DIR / "kurals_enriched.json"
+CACHE_PATH = DATA_DIR / "gemini_embeddings_cache.json"
 
 # Qdrant settings
 QDRANT_URL = os.getenv("QDRANT_URL", "")
@@ -44,6 +47,22 @@ MODEL_NAME = os.getenv(
     "gemini-embedding-001" if EMBEDDING_PROVIDER == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
 )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEYS_RAW = os.getenv("GEMINI_API_KEYS", "")
+
+
+def get_gemini_keys() -> list[str]:
+    """Collect all available Gemini API keys for rotation."""
+    keys = []
+    if GEMINI_API_KEYS_RAW:
+        for k in GEMINI_API_KEYS_RAW.split(","):
+            cleaned = k.strip().strip('"').strip("'")
+            if cleaned and cleaned not in keys:
+                keys.append(cleaned)
+    if GEMINI_API_KEY:
+        cleaned = GEMINI_API_KEY.strip().strip('"').strip("'")
+        if cleaned and cleaned not in keys:
+            keys.append(cleaned)
+    return keys
 
 
 def load_kurals() -> list[dict]:
@@ -89,42 +108,100 @@ def build_points_metadata(kurals: list[dict]) -> tuple[list[str], list[dict]]:
     return texts, payloads
 
 
-def embed_texts_gemini(texts: list[str], model_name: str, api_key: str, batch_size: int = 100) -> list[list[float]]:
+def load_cached_embeddings() -> list[list[float]]:
+    if CACHE_PATH.exists():
+        try:
+            with CACHE_PATH.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    print(f"Loaded {len(data)} cached embeddings from {CACHE_PATH.name}")
+                    return data
+        except Exception as e:
+            print(f"Warning: Could not read cache {CACHE_PATH}: {e}")
+    return []
+
+
+def save_cached_embeddings(embeddings: list[list[float]]):
+    try:
+        with CACHE_PATH.open("w", encoding="utf-8") as f:
+            json.dump(embeddings, f)
+    except Exception as e:
+        print(f"Warning: Failed to save cache: {e}")
+
+
+def embed_texts_gemini(texts: list[str], model_name: str, batch_size: int = 100) -> list[list[float]]:
     from google import genai
     from google.genai import types
-    api_key_clean = (api_key or "").strip().strip('"').strip("'")
-    if not api_key_clean:
-        raise ValueError("GEMINI_API_KEY is required to index with the 'gemini' provider.")
 
-    client = genai.Client(api_key=api_key_clean)
-    all_embeddings: list[list[float]] = []
-    total_batches = (len(texts) + batch_size - 1) // batch_size
-    print(f"Embedding {len(texts)} texts via Gemini API ({model_name}) across {total_batches} batches...")
+    keys = get_gemini_keys()
+    if not keys:
+        raise ValueError("GEMINI_API_KEY (or GEMINI_API_KEYS) is required to index with 'gemini'.")
 
-    for i in range(0, len(texts), batch_size):
+    key_index = 0
+    client = genai.Client(api_key=keys[key_index])
+    all_embeddings = load_cached_embeddings()
+
+    total_texts = len(texts)
+    start_index = len(all_embeddings)
+    total_batches = (total_texts + batch_size - 1) // batch_size
+
+    if start_index >= total_texts:
+        print(f"All {total_texts} texts are already cached! Proceeding to upload...")
+        return all_embeddings[:total_texts]
+
+    start_batch = (start_index // batch_size) + 1
+    print(f"Embedding remaining texts ({start_index}/{total_texts}) starting at batch {start_batch}/{total_batches}...")
+
+    for i in range(start_index, total_texts, batch_size):
         batch = texts[i : i + batch_size]
         batch_num = (i // batch_size) + 1
+        success = False
 
-        for attempt in range(5):
-            try:
-                response = client.models.embed_content(
-                    model=model_name,
-                    contents=batch,
-                    config=types.EmbedContentConfig(output_dimensionality=768),
-                )
-                batch_vectors = [emb.values for emb in response.embeddings]
-                all_embeddings.extend(batch_vectors)
-                print(f"  Batch {batch_num}/{total_batches} ({min(i + batch_size, len(texts))}/{len(texts)}) completed.")
-                # Safe rate-limiting delay for free tier (15 RPM limit -> ~4 seconds between batches)
-                if i + batch_size < len(texts):
-                    time.sleep(4)
-                break
-            except Exception as e:
-                wait_time = (2 ** (attempt + 1)) * 3
-                print(f"  Batch {batch_num} attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
-                time.sleep(wait_time)
-        else:
-            raise RuntimeError(f"Batch {batch_num} failed after 5 retries.")
+        while not success:
+            for attempt in range(5):
+                try:
+                    response = client.models.embed_content(
+                        model=model_name,
+                        contents=batch,
+                        config=types.EmbedContentConfig(output_dimensionality=768),
+                    )
+                    batch_vectors = [emb.values for emb in response.embeddings]
+                    all_embeddings.extend(batch_vectors)
+                    save_cached_embeddings(all_embeddings)
+
+                    print(f"  Batch {batch_num}/{total_batches} ({min(i + batch_size, total_texts)}/{total_texts}) completed and cached.")
+                    if i + batch_size < total_texts:
+                        time.sleep(4)
+                    success = True
+                    break
+
+                except Exception as e:
+                    err_str = str(e)
+                    # Check if daily quota hit (requests per day)
+                    if "per day limit exceeded" in err_str or "requests per day" in err_str:
+                        print(f"  API Key {key_index + 1}/{len(keys)} reached its daily quota.")
+                        if key_index + 1 < len(keys):
+                            key_index += 1
+                            print(f"  Switching to next API key ({key_index + 1}/{len(keys)})...")
+                            client = genai.Client(api_key=keys[key_index])
+                            time.sleep(2)
+                            break  # retry this batch with new key
+                        else:
+                            save_cached_embeddings(all_embeddings)
+                            raise RuntimeError(
+                                f"\nAll available Gemini API keys have exhausted their daily quota.\n"
+                                f"Progress saved: {len(all_embeddings)}/{total_texts} items are safely cached in {CACHE_PATH.name}.\n"
+                                f"To finish today: add another free key to GEMINI_API_KEYS, or enable Pay-As-You-Go on Google AI Studio (< $0.01 for the rest),\n"
+                                f"or re-run tomorrow to resume automatically from batch {batch_num}."
+                            )
+
+                    wait_time = (2 ** (attempt + 1)) * 3
+                    print(f"  Batch {batch_num} attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+            else:
+                # If 5 attempts failed without a day limit (e.g. repeated rate limits)
+                if not success:
+                    raise RuntimeError(f"Batch {batch_num} failed after 5 retries.")
 
     return all_embeddings
 
@@ -164,7 +241,7 @@ def main():
 
     print(f"Embedding Provider: {EMBEDDING_PROVIDER.upper()} | Model: {MODEL_NAME}")
     if EMBEDDING_PROVIDER == "gemini":
-        embeddings = embed_texts_gemini(texts, MODEL_NAME, GEMINI_API_KEY)
+        embeddings = embed_texts_gemini(texts, MODEL_NAME)
     else:
         embeddings = embed_texts_local(texts, MODEL_NAME)
 
