@@ -14,24 +14,12 @@ from google import genai
 from google.genai import types
 
 from configs import BaseConfig
+from resources import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
-_client: genai.Client | None = None
-
-
-def _get_client() -> genai.Client | None:
-    global _client
-    if _client is None:
-        api_key = (BaseConfig.GEMINI_API_KEY or "").strip().strip('"').strip("'")
-        if not api_key:
-            return None
-        try:
-            _client = genai.Client(api_key=api_key)
-        except Exception as exc:
-            logger.warning("Failed to initialize Gemini client: %s", exc)
-            return None
-    return _client
+# Alias for backwards compatibility with tests that patch _get_client
+_get_client = get_gemini_client
 
 
 SYSTEM_PROMPT = """You explain why a classical Thirukural couplet applies to someone's modern situation.

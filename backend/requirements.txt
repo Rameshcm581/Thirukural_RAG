@@ -2,8 +2,8 @@ fastapi
 uvicorn[standard]
 python-dotenv
 pydantic
+email-validator
 qdrant-client
-sentence-transformers
 google-genai
 httpx
 pytest

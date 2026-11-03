@@ -14,7 +14,7 @@ import logging
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from configs import BaseConfig
-from resources import get_embedding_model, get_qdrant_client
+from resources import embed_text, get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +44,9 @@ def retrieve_kurals(scenario: str, top_k: int = None) -> list[dict]:
     ready to serialize into KuralResult.
     """
     top_k = top_k or BaseConfig.TOP_K
-    model = get_embedding_model()
     client = get_qdrant_client()
 
-    query_vector = model.encode(scenario, normalize_embeddings=True).tolist()
+    query_vector = embed_text(scenario)
 
     tag_filter = Filter(must=[FieldCondition(key="vector_type", match=MatchValue(value="scenario_tag"))])
     couplet_filter = Filter(must=[FieldCondition(key="vector_type", match=MatchValue(value="couplet"))])

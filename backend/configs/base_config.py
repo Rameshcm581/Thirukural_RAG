@@ -20,9 +20,11 @@ class BaseConfig:
     QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
     COLLECTION_NAME: str = os.getenv("COLLECTION_NAME", "thirukural")
 
-    # Embedding model -- same model validated end-to-end in Phase 6/7
+    # Embedding provider: "gemini" (lightweight API for Render Free Tier) or "local" (SentenceTransformer)
+    EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
     EMBEDDING_MODEL_NAME: str = os.getenv(
-        "EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2"
+        "EMBEDDING_MODEL_NAME",
+        "text-embedding-004" if os.getenv("EMBEDDING_PROVIDER", "gemini").lower() == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
     )
 
     # Retrieval tuning -- carried over from eval/run_eval.py's validated values
@@ -31,7 +33,7 @@ class BaseConfig:
 
     # Explanation generation (Gemini)
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    EXPLAIN_MODEL_NAME: str = os.getenv("EXPLAIN_MODEL_NAME", "gemini-3.5-flash-lite")
+    EXPLAIN_MODEL_NAME: str = os.getenv("EXPLAIN_MODEL_NAME", "gemini-2.5-flash")
 
     # PostgreSQL Database for Chat History & Sessions
     DATABASE_URL: str = os.getenv(

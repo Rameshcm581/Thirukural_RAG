@@ -1,48 +1,49 @@
 """
 build_index.py
 
-Phase 6 of the Thirukural RAG project: embed and index the enriched
-dataset into Qdrant.
+Embed and index the enriched Thirukural dataset into Qdrant.
 
-Design:
-  - Uses a LOCAL multilingual sentence-transformers model (no API, no
-    rate limits, no daily quota -- after the Phase 4 saga, a one-time
-    local embedding job is much less painful than another hosted API).
-  - Two vector "types" are indexed per kural, so Phase 7 can compare
-    which one drives better retrieval:
-      1. "scenario_tag" -- ONE POINT PER SCENARIO TAG, not one blob per
-         kural. A user's query only needs to be close to *one* of a
-         kural's 2-12 tag phrasings, which is a much finer-grained
-         match than averaging all tags into a single vector.
-      2. "couplet" -- one point per kural, embedding the English
-         couplet + explanation together, as a fallback/complementary
-         signal for direct semantic-literal matches.
-  - Every point's payload carries enough metadata (kural_number, book,
-    iyal, adikaram, vector_type, source text) to retrieve and display
-    the full kural without a second lookup.
-
-Requires: pip install sentence-transformers qdrant-client
-Assumes Qdrant is running locally (docker run -p 6333:6333 qdrant/qdrant).
+Supports two embedding providers:
+  1. "gemini" (default) -- uses Google's text-embedding-004 API.
+     Lightweight, avoids huge PyTorch memory footprint (~1.5GB) on servers,
+     and allows backend to run comfortably within Render / free tier limits.
+  2. "local" -- uses SentenceTransformer (paraphrase-multilingual-mpnet-base-v2).
 """
 
 import json
 import os
+import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from sentence_transformers import SentenceTransformer
+
+# Search and load environment variables from pipeline, backend, or workspace root
+for env_candidate in [
+    Path(__file__).resolve().parent.parent / ".env",
+    Path(__file__).resolve().parent.parent.parent / "backend/.env",
+    Path(__file__).resolve().parent.parent.parent / ".env",
+]:
+    if env_candidate.exists():
+        load_dotenv(env_candidate)
 
 INPUT_PATH = Path(__file__).resolve().parent.parent / "data/processed/kurals_enriched.json"
-# Set QDRANT_URL (+ QDRANT_API_KEY) to index into a hosted cluster, e.g. Qdrant
-# Cloud; otherwise targets the local docker instance.
+
+# Qdrant settings
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "thirukural")
-MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "paraphrase-multilingual-mpnet-base-v2")
-BATCH_SIZE = 64
+
+# Embedding settings
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini").lower()
+MODEL_NAME = os.getenv(
+    "EMBEDDING_MODEL_NAME",
+    "text-embedding-004" if EMBEDDING_PROVIDER == "gemini" else "paraphrase-multilingual-mpnet-base-v2"
+)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 
 def load_kurals() -> list[dict]:
@@ -51,8 +52,7 @@ def load_kurals() -> list[dict]:
 
 
 def build_points_metadata(kurals: list[dict]) -> tuple[list[str], list[dict]]:
-    """Returns (texts_to_embed, payloads) in matching order. Each entry
-    is either a single scenario tag or a couplet+explanation blob."""
+    """Returns (texts_to_embed, payloads) in matching order."""
     texts = []
     payloads = []
 
@@ -89,6 +89,58 @@ def build_points_metadata(kurals: list[dict]) -> tuple[list[str], list[dict]]:
     return texts, payloads
 
 
+def embed_texts_gemini(texts: list[str], model_name: str, api_key: str, batch_size: int = 100) -> list[list[float]]:
+    from google import genai
+    api_key_clean = (api_key or "").strip().strip('"').strip("'")
+    if not api_key_clean:
+        raise ValueError("GEMINI_API_KEY is required to index with the 'gemini' provider.")
+
+    client = genai.Client(api_key=api_key_clean)
+    all_embeddings: list[list[float]] = []
+    total_batches = (len(texts) + batch_size - 1) // batch_size
+    print(f"Embedding {len(texts)} texts via Gemini API ({model_name}) across {total_batches} batches...")
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        batch_num = (i // batch_size) + 1
+
+        for attempt in range(5):
+            try:
+                response = client.models.embed_content(
+                    model=model_name,
+                    contents=batch,
+                )
+                batch_vectors = [emb.values for emb in response.embeddings]
+                all_embeddings.extend(batch_vectors)
+                print(f"  Batch {batch_num}/{total_batches} ({min(i + batch_size, len(texts))}/{len(texts)}) completed.")
+                # Safe rate-limiting delay for free tier (15 RPM limit -> ~4 seconds between batches)
+                if i + batch_size < len(texts):
+                    time.sleep(4)
+                break
+            except Exception as e:
+                wait_time = (2 ** (attempt + 1)) * 3
+                print(f"  Batch {batch_num} attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+        else:
+            raise RuntimeError(f"Batch {batch_num} failed after 5 retries.")
+
+    return all_embeddings
+
+
+def embed_texts_local(texts: list[str], model_name: str, batch_size: int = 64) -> list[list[float]]:
+    from sentence_transformers import SentenceTransformer
+    print(f"Loading local SentenceTransformer model '{model_name}'...")
+    model = SentenceTransformer(model_name)
+    print("Embedding all texts locally...")
+    embeddings = model.encode(
+        texts,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        normalize_embeddings=True,
+    )
+    return embeddings.tolist()
+
+
 def main():
     print(f"Loading kurals from {INPUT_PATH}...")
     kurals = load_kurals()
@@ -98,31 +150,26 @@ def main():
     print(f"Prepared {len(texts)} texts to embed "
           f"({len(texts) - len(kurals)} scenario tags + {len(kurals)} couplets).")
 
-    # Connect BEFORE the (slow) embedding step so a bad URL/key fails in
-    # seconds rather than after 15 minutes of CPU work.
+    # Connect to Qdrant early to fail fast before doing embedding work
     if QDRANT_URL:
         print(f"Connecting to Qdrant at {QDRANT_URL}...")
         client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
     else:
         print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
         client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
-    client.get_collections()  # raises immediately if unreachable or unauthorized
-    print("Connected.")
+    client.get_collections()
+    print("Connected to Qdrant.")
 
-    print(f"Loading embedding model '{MODEL_NAME}' (this may download on first run)...")
-    model = SentenceTransformer(MODEL_NAME)
-    vector_size = model.get_sentence_embedding_dimension()
-    print(f"Model loaded. Vector size: {vector_size}")
+    print(f"Embedding Provider: {EMBEDDING_PROVIDER.upper()} | Model: {MODEL_NAME}")
+    if EMBEDDING_PROVIDER == "gemini":
+        embeddings = embed_texts_gemini(texts, MODEL_NAME, GEMINI_API_KEY)
+    else:
+        embeddings = embed_texts_local(texts, MODEL_NAME)
 
-    print("Embedding all texts locally (no API calls, no rate limits)...")
-    embeddings = model.encode(
-        texts,
-        batch_size=BATCH_SIZE,
-        show_progress_bar=True,
-        normalize_embeddings=True,  # so cosine similarity == dot product
-    )
+    vector_size = len(embeddings[0])
+    print(f"Embedding complete. Vector size: {vector_size}")
 
-    print(f"(Re)creating collection '{COLLECTION_NAME}'...")
+    print(f"(Re)creating Qdrant collection '{COLLECTION_NAME}'...")
     if client.collection_exists(COLLECTION_NAME):
         client.delete_collection(COLLECTION_NAME)
     client.create_collection(
@@ -138,19 +185,18 @@ def main():
 
     print("Upserting points into Qdrant...")
     points = [
-        PointStruct(id=i, vector=embeddings[i].tolist(), payload=payloads[i])
+        PointStruct(id=i, vector=embeddings[i], payload=payloads[i])
         for i in range(len(texts))
     ]
 
-    # Upload in chunks to avoid one giant request
     upload_batch_size = 256
     for start in range(0, len(points), upload_batch_size):
-        chunk = points[start:start + upload_batch_size]
+        chunk = points[start : start + upload_batch_size]
         client.upsert(collection_name=COLLECTION_NAME, points=chunk)
         print(f"  Upserted {min(start + upload_batch_size, len(points))}/{len(points)}")
 
     count = client.count(collection_name=COLLECTION_NAME).count
-    print(f"\nDone. Collection '{COLLECTION_NAME}' now has {count} points.")
+    print(f"\nDone! Collection '{COLLECTION_NAME}' now has {count} points.")
     print(f"  - {len(texts) - len(kurals)} scenario_tag vectors")
     print(f"  - {len(kurals)} couplet vectors")
 

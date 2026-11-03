@@ -1,46 +1,86 @@
 """
 resources/__init__.py
 
-Equivalent of the reference pattern's `models/__init__.py` (engine, Base,
-get_db) -- except our "database" is a local embedding model and a Qdrant
-client. Both are loaded ONCE via the FastAPI lifespan in main.py, not
-per-request, since the embedding model is ~1GB and reloading it per
-request would be prohibitively slow.
+Manages embedding resources (Gemini embedding API or local SentenceTransformer)
+and the Qdrant vector database client.
 """
 
 import logging
+from typing import Any
 
+from google import genai
 from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
 
 from configs import BaseConfig
 
 logger = logging.getLogger(__name__)
 
-_embedding_model: SentenceTransformer | None = None
+_local_embedding_model: Any = None
+_gemini_client: genai.Client | None = None
 _qdrant_client: QdrantClient | None = None
 
 
-def load_embedding_model() -> SentenceTransformer:
-    """Load the embedding model once. Safe to call multiple times --
-    subsequent calls return the already-loaded instance."""
-    global _embedding_model
-    if _embedding_model is None:
-        logger.info("Loading embedding model '%s'...", BaseConfig.EMBEDDING_MODEL_NAME)
-        _embedding_model = SentenceTransformer(BaseConfig.EMBEDDING_MODEL_NAME)
-        logger.info("Embedding model loaded.")
-    return _embedding_model
+def get_gemini_client() -> genai.Client | None:
+    """Returns an initialized Gemini client, or None if API key is missing."""
+    global _gemini_client
+    if _gemini_client is None:
+        api_key = (BaseConfig.GEMINI_API_KEY or "").strip().strip('"').strip("'")
+        if not api_key:
+            return None
+        try:
+            _gemini_client = genai.Client(api_key=api_key)
+        except Exception as exc:
+            logger.warning("Failed to initialize Gemini client: %s", exc)
+            return None
+    return _gemini_client
 
 
-def get_embedding_model() -> SentenceTransformer:
-    """Dependency-style accessor for use inside request handlers.
-    Raises clearly if called before lifespan startup ran."""
-    if _embedding_model is None:
+def load_embedding_model():
+    """Initializes the configured embedding provider once during app lifespan."""
+    provider = BaseConfig.EMBEDDING_PROVIDER
+    if provider == "gemini":
+        logger.info("Initializing Gemini embedding client (model: %s)...", BaseConfig.EMBEDDING_MODEL_NAME)
+        client = get_gemini_client()
+        if client is None:
+            logger.warning("Gemini client not initialized -- check GEMINI_API_KEY")
+        else:
+            logger.info("Gemini embedding client ready.")
+        return client
+    else:
+        global _local_embedding_model
+        if _local_embedding_model is None:
+            logger.info("Loading local embedding model '%s'...", BaseConfig.EMBEDDING_MODEL_NAME)
+            from sentence_transformers import SentenceTransformer
+            _local_embedding_model = SentenceTransformer(BaseConfig.EMBEDDING_MODEL_NAME)
+            logger.info("Local embedding model loaded.")
+        return _local_embedding_model
+
+
+def get_embedding_model():
+    """Accessor for local model if local provider is used."""
+    if BaseConfig.EMBEDDING_PROVIDER != "gemini" and _local_embedding_model is None:
         raise RuntimeError(
-            "Embedding model not loaded -- load_embedding_model() must be "
+            "Local embedding model not loaded -- load_embedding_model() must be "
             "called during app startup (see main.py lifespan)."
         )
-    return _embedding_model
+    return _local_embedding_model
+
+
+def embed_text(text: str) -> list[float]:
+    """Embeds a single query text using the configured provider (Gemini API or local)."""
+    provider = BaseConfig.EMBEDDING_PROVIDER
+    if provider == "gemini":
+        client = get_gemini_client()
+        if client is None:
+            raise RuntimeError("GEMINI_API_KEY not configured or client failed to initialize.")
+        response = client.models.embed_content(
+            model=BaseConfig.EMBEDDING_MODEL_NAME,
+            contents=text,
+        )
+        return response.embeddings[0].values
+    else:
+        model = get_embedding_model()
+        return model.encode(text, normalize_embeddings=True).tolist()
 
 
 def connect_qdrant() -> QdrantClient:
@@ -76,8 +116,13 @@ def get_qdrant_client() -> QdrantClient:
 
 
 def check_health() -> dict:
-    """Returns status dictionary verifying model and Qdrant connectivity."""
-    model_status = "loaded" if _embedding_model is not None else "not_loaded"
+    """Returns status dictionary verifying embedding provider and Qdrant connectivity."""
+    provider = BaseConfig.EMBEDDING_PROVIDER
+    if provider == "gemini":
+        model_status = "ready (gemini API)" if _gemini_client is not None else "api_key_missing"
+    else:
+        model_status = "loaded" if _local_embedding_model is not None else "not_loaded"
+
     qdrant_status = "not_connected"
     if _qdrant_client is not None:
         try:
@@ -85,9 +130,10 @@ def check_health() -> dict:
             qdrant_status = "connected"
         except Exception as exc:
             qdrant_status = f"unreachable: {exc}"
-    is_healthy = model_status == "loaded" and qdrant_status == "connected"
+    is_healthy = ("ready" in model_status or model_status == "loaded") and qdrant_status == "connected"
     return {
         "status": "healthy" if is_healthy else "degraded",
+        "embedding_provider": provider,
         "embedding_model": model_status,
         "qdrant": qdrant_status,
     }
