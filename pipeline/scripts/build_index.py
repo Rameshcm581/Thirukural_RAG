@@ -137,8 +137,8 @@ def embed_texts_gemini(texts: list[str], model_name: str, batch_size: int = 100)
     if not keys:
         raise ValueError("GEMINI_API_KEY (or GEMINI_API_KEYS) is required to index with 'gemini'.")
 
-    key_index = 0
-    client = genai.Client(api_key=keys[key_index])
+    active_keys = list(keys)
+    clients = {k: genai.Client(api_key=k) for k in active_keys}
     all_embeddings = load_cached_embeddings()
 
     total_texts = len(texts)
@@ -150,58 +150,57 @@ def embed_texts_gemini(texts: list[str], model_name: str, batch_size: int = 100)
         return all_embeddings[:total_texts]
 
     start_batch = (start_index // batch_size) + 1
-    print(f"Embedding remaining texts ({start_index}/{total_texts}) starting at batch {start_batch}/{total_batches}...")
+    print(f"Embedding remaining texts ({start_index}/{total_texts}) using {len(active_keys)} keys starting at batch {start_batch}/{total_batches}...")
 
+    key_idx = 0
     for i in range(start_index, total_texts, batch_size):
         batch = texts[i : i + batch_size]
         batch_num = (i // batch_size) + 1
         success = False
 
         while not success:
-            for attempt in range(5):
-                try:
-                    response = client.models.embed_content(
-                        model=model_name,
-                        contents=batch,
-                        config=types.EmbedContentConfig(output_dimensionality=768),
-                    )
-                    batch_vectors = [emb.values for emb in response.embeddings]
-                    all_embeddings.extend(batch_vectors)
-                    save_cached_embeddings(all_embeddings)
+            if not active_keys:
+                save_cached_embeddings(all_embeddings)
+                raise RuntimeError(
+                    f"\nAll available Gemini API keys have exhausted their daily quota.\n"
+                    f"Progress saved: {len(all_embeddings)}/{total_texts} items are safely cached in {CACHE_PATH.name}.\n"
+                    f"Please provide additional keys or resume tomorrow to complete the remaining batches."
+                )
 
-                    print(f"  Batch {batch_num}/{total_batches} ({min(i + batch_size, total_texts)}/{total_texts}) completed and cached.")
-                    if i + batch_size < total_texts:
-                        time.sleep(4)
-                    success = True
-                    break
+            current_key = active_keys[key_idx % len(active_keys)]
+            client = clients[current_key]
 
-                except Exception as e:
-                    err_str = str(e)
-                    # Check if daily quota hit (requests per day)
-                    if "per day limit exceeded" in err_str or "requests per day" in err_str:
-                        print(f"  API Key {key_index + 1}/{len(keys)} reached its daily quota.")
-                        if key_index + 1 < len(keys):
-                            key_index += 1
-                            print(f"  Switching to next API key ({key_index + 1}/{len(keys)})...")
-                            client = genai.Client(api_key=keys[key_index])
-                            time.sleep(2)
-                            break  # retry this batch with new key
-                        else:
-                            save_cached_embeddings(all_embeddings)
-                            raise RuntimeError(
-                                f"\nAll available Gemini API keys have exhausted their daily quota.\n"
-                                f"Progress saved: {len(all_embeddings)}/{total_texts} items are safely cached in {CACHE_PATH.name}.\n"
-                                f"To finish today: add another free key to GEMINI_API_KEYS, or enable Pay-As-You-Go on Google AI Studio (< $0.01 for the rest),\n"
-                                f"or re-run tomorrow to resume automatically from batch {batch_num}."
-                            )
+            try:
+                response = client.models.embed_content(
+                    model=model_name,
+                    contents=batch,
+                    config=types.EmbedContentConfig(output_dimensionality=768),
+                )
+                batch_vectors = [emb.values for emb in response.embeddings]
+                all_embeddings.extend(batch_vectors)
+                save_cached_embeddings(all_embeddings)
 
-                    wait_time = (2 ** (attempt + 1)) * 3
-                    print(f"  Batch {batch_num} attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-            else:
-                # If 5 attempts failed without a day limit (e.g. repeated rate limits)
-                if not success:
-                    raise RuntimeError(f"Batch {batch_num} failed after 5 retries.")
+                print(f"  Batch {batch_num}/{total_batches} ({min(i + batch_size, total_texts)}/{total_texts}) completed with Key #{keys.index(current_key) + 1}.")
+                key_idx += 1
+                success = True
+                # Polite 1s pause between batches
+                time.sleep(1)
+
+            except Exception as e:
+                err_str = str(e)
+                if "per day limit exceeded" in err_str or "requests per day" in err_str:
+                    print(f"  Key #{keys.index(current_key) + 1} reached its daily quota and is being retired for today.")
+                    active_keys.remove(current_key)
+                    if active_keys:
+                        print(f"  {len(active_keys)} keys remaining. Continuing with next key...")
+                elif "per minute limit exceeded" in err_str:
+                    print(f"  Key #{keys.index(current_key) + 1} hit per-minute limit. Rotating to next key...")
+                    key_idx += 1
+                    time.sleep(2)
+                else:
+                    print(f"  Batch {batch_num} error with Key #{keys.index(current_key) + 1}: {e}")
+                    key_idx += 1
+                    time.sleep(3)
 
     return all_embeddings
 
