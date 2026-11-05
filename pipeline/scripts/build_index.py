@@ -231,10 +231,10 @@ def main():
     # Connect to Qdrant early to fail fast before doing embedding work
     if QDRANT_URL:
         print(f"Connecting to Qdrant at {QDRANT_URL}...")
-        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, check_compatibility=False)
+        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY or None, timeout=60, check_compatibility=False)
     else:
         print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
+        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=60, check_compatibility=False)
     client.get_collections()
     print("Connected to Qdrant.")
 
@@ -267,10 +267,16 @@ def main():
         for i in range(len(texts))
     ]
 
-    upload_batch_size = 256
+    upload_batch_size = 100
     for start in range(0, len(points), upload_batch_size):
         chunk = points[start : start + upload_batch_size]
-        client.upsert(collection_name=COLLECTION_NAME, points=chunk)
+        for attempt in range(5):
+            try:
+                client.upsert(collection_name=COLLECTION_NAME, points=chunk)
+                break
+            except Exception as e:
+                print(f"  Upsert retry {attempt + 1}/5: {e}")
+                time.sleep(2)
         print(f"  Upserted {min(start + upload_batch_size, len(points))}/{len(points)}")
 
     count = client.count(collection_name=COLLECTION_NAME).count
