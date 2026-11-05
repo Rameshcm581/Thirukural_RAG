@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import KuralCard from './components/KuralCard.jsx'
 import ChatView from './components/ChatView.jsx'
+import { SearchIcon, MessageSquareIcon, SparklesIcon } from './components/Icons.jsx'
 import './styles/App.css'
 
 const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:8000').replace(/\/+$/, '')
@@ -76,14 +77,16 @@ export default function App() {
           className={`nav-tab ${tab === 'search' ? 'active' : ''}`}
           onClick={() => setTab('search')}
         >
-          🔍 Discover Wisdom
+          <SearchIcon size={16} className="nav-tab-icon" />
+          <span>Discover Wisdom</span>
         </button>
         <button
           type="button"
           className={`nav-tab ${tab === 'chat' ? 'active' : ''}`}
           onClick={() => setTab('chat')}
         >
-          💬 Counsel Dialogue
+          <MessageSquareIcon size={16} className="nav-tab-icon" />
+          <span>Counsel Dialogue</span>
         </button>
       </nav>
 
@@ -107,8 +110,18 @@ export default function App() {
                 rows={3}
               />
               <div className="form-actions">
-                <button type="submit" disabled={loading || !scenario.trim()}>
-                  {loading ? 'Searching…' : 'Find wisdom'}
+                <button type="submit" className="btn-search-submit" disabled={loading || !scenario.trim()}>
+                  {loading ? (
+                    <>
+                      <span className="btn-spinner" aria-hidden="true" />
+                      <span>Searching…</span>
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon size={16} />
+                      <span>Find wisdom</span>
+                    </>
+                  )}
                 </button>
                 <span className="submit-hint">Press Enter to search, Shift+Enter for new line</span>
               </div>

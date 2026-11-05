@@ -1,5 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import KuralCard from './KuralCard.jsx'
+import {
+  SendIcon,
+  PlusIcon,
+  CloseIcon,
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from './Icons.jsx'
 
 export default function ChatView({ apiBase }) {
   const [sessions, setSessions] = useState([])
@@ -146,7 +154,8 @@ export default function ChatView({ apiBase }) {
       {/* Session Management Bar */}
       <div className="chat-session-bar">
         <button type="button" className="btn-new-chat" onClick={startNewChat}>
-          + New Dialogue
+          <PlusIcon size={14} />
+          <span>New Dialogue</span>
         </button>
 
         {sessions.length > 0 && (
@@ -163,8 +172,9 @@ export default function ChatView({ apiBase }) {
                   className="session-delete"
                   onClick={(e) => deleteSession(s.session_id, e)}
                   title="Delete session"
+                  aria-label="Delete session"
                 >
-                  ×
+                  <CloseIcon size={12} />
                 </button>
               </div>
             ))}
@@ -200,9 +210,17 @@ export default function ChatView({ apiBase }) {
                     className="btn-toggle-kurals"
                     onClick={() => toggleKurals(msg.id || idx)}
                   >
-                    {expandedKurals[msg.id || idx]
-                      ? `Hide Referenced Kurals (${msg.kural_results.length})`
-                      : `View Referenced Kurals (${msg.kural_results.length}) 📜`}
+                    <BookOpenIcon size={14} />
+                    <span>
+                      {expandedKurals[msg.id || idx]
+                        ? `Hide Referenced Kurals (${msg.kural_results.length})`
+                        : `View Referenced Kurals (${msg.kural_results.length})`}
+                    </span>
+                    {expandedKurals[msg.id || idx] ? (
+                      <ChevronUpIcon size={14} />
+                    ) : (
+                      <ChevronDownIcon size={14} />
+                    )}
                   </button>
 
                   {expandedKurals[msg.id || idx] && (
@@ -244,19 +262,37 @@ export default function ChatView({ apiBase }) {
 
       {/* Input Bar */}
       <form onSubmit={handleSend} className="chat-input-form">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          aria-label="Message Thirukural counselor"
-          placeholder="Share what is happening or ask a follow-up question…"
-          rows={2}
-        />
-        <div className="form-actions">
-          <button type="submit" disabled={loading || !input.trim()}>
-            {loading ? 'Thinking…' : 'Send'}
-          </button>
-          <span className="submit-hint">Enter to send, Shift+Enter for new line</span>
+        <div className="chat-input-container">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            aria-label="Message Thirukural counselor"
+            placeholder="Share what is happening or ask a follow-up question…"
+            rows={2}
+          />
+          <div className="chat-input-actions">
+            <span className="submit-hint">Enter to send, Shift+Enter for new line</span>
+            <button
+              type="submit"
+              className="btn-send"
+              disabled={loading || !input.trim()}
+              title="Send message"
+              aria-label="Send message"
+            >
+              {loading ? (
+                <>
+                  <span className="btn-spinner" aria-hidden="true" />
+                  <span>Thinking…</span>
+                </>
+              ) : (
+                <>
+                  <span>Send</span>
+                  <SendIcon size={15} />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>
